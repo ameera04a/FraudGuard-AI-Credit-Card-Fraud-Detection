@@ -21,9 +21,16 @@ This project uses Logistic Regression to detect credit card fraud. The dataset i
 
 ## Dataset
 
-Dataset: Kaggle Credit Card Fraud Detection Dataset
+The original dataset used in this project is the Kaggle Credit Card Fraud Detection dataset.
 
-The full dataset is not uploaded to this repository because of file size limits. A small sample dataset is included for demo purposes.
+Dataset link: https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud
+
+The full dataset is not uploaded because it is large. A smaller `sample_transactions.csv` file is included for testing the Streamlit app.
+
+## Project Workflow
+
+Dataset Collection → Data Preprocessing → Train-Test Split → SMOTE Balancing → Logistic Regression Training → Model Evaluation → Streamlit Integration
+
 
 ## Model Performance
 
@@ -52,7 +59,26 @@ The full dataset is not uploaded to this repository because of file size limits.
 - Confusion matrix visualization
 - Precision, recall, and F1-score graph
 - Before/after SMOTE class distribution visualization
+  
+## Screenshots
 
+![Home Page](screenshots/home.png)
+
+![Legit Prediction Page](screenshots/prediction_legit.png)
+
+![Fraud Prediction Page](screenshots/prediction_fraud.png)
+
+![Model Results](screenshots/model_results.png)
+
+## Learning Outcomes
+
+- Data preprocessing
+- Feature scaling
+- Handling imbalanced datasets using SMOTE
+- Logistic Regression model training
+- Model evaluation using precision, recall, F1-score, and confusion matrix
+- Streamlit front-end integration
+  
 ## How to Run Locally
 
 ```bash
