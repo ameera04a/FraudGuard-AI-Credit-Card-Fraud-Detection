@@ -6,6 +6,9 @@ FraudGuard AI is a machine learning web application that predicts whether a cred
 
 This project uses Logistic Regression to detect credit card fraud. The dataset is highly imbalanced, so SMOTE was used to increase fraud samples in the training data. The model is integrated with a Streamlit front-end for easy interaction.
 
+## Live Demo
+https://fraudguard-ai-credit-card-fraud-detection-fjrpytwrn9ewk8oakzjx.streamlit.app/
+
 ## Tech Stack
 
 - Python
