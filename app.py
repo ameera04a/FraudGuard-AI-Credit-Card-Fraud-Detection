@@ -484,60 +484,7 @@ elif page == "Model Results":
 
     st.write("")
 
-    # -------------------------------
-    # Model workflow graph on results page
-    # -------------------------------
-    st.subheader("Model Workflow Summary")
 
-    workflow_steps = pd.DataFrame({
-        "Step": [
-            "Dataset",
-            "Preprocessing",
-            "Train-Test Split",
-            "SMOTE",
-            "Training",
-            "Evaluation",
-            "Frontend"
-        ],
-        "Order": [1, 2, 3, 4, 5, 6, 7],
-        "Description": [
-            "Credit card transaction data with Time, Amount, V1-V28, and Class.",
-            "Scale Time and Amount so the model receives normalized values.",
-            "Split data into training and testing sets.",
-            "Apply SMOTE on training data to increase fraud examples.",
-            "Train Logistic Regression model on balanced data.",
-            "Evaluate using confusion matrix, precision, recall, and F1-score.",
-            "Use Streamlit to test transactions through the frontend."
-        ]
-    })
-
-    fig_workflow = go.Figure()
-
-    fig_workflow.add_trace(go.Scatter(
-        x=workflow_steps["Order"],
-        y=[1] * len(workflow_steps),
-        mode="markers+text+lines",
-        marker=dict(size=38),
-        text=workflow_steps["Step"],
-        textposition="top center",
-        hovertext=workflow_steps["Description"],
-        hoverinfo="text"
-    ))
-
-    fig_workflow.update_layout(
-        title="FraudGuard AI Pipeline",
-        xaxis=dict(
-            tickmode="array",
-            tickvals=workflow_steps["Order"],
-            ticktext=workflow_steps["Step"],
-            showgrid=False
-        ),
-        yaxis=dict(visible=False),
-        height=330,
-        showlegend=False
-    )
-
-    st.plotly_chart(fig_workflow, use_container_width=True)
 
     st.warning("""
     Accuracy alone can be misleading in fraud detection because the dataset is highly imbalanced.
