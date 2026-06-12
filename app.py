@@ -2,8 +2,8 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import joblib
-import matplotlib.pyplot as plt
-from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
+import plotly.express as px
+import plotly.graph_objects as go
 
 # -------------------------------
 # Page configuration
@@ -15,39 +15,61 @@ st.set_page_config(
 )
 
 # -------------------------------
-# Custom CSS for better frontend
+# Custom CSS - light mode + dark mode friendly
 # -------------------------------
 st.markdown("""
 <style>
 .main-title {
     font-size: 42px;
     font-weight: bold;
-    color: #1f4e79;
+    color: #1f77b4;
     text-align: center;
 }
+
 .sub-title {
     font-size: 18px;
     text-align: center;
-    color: #555;
+    color: inherit;
 }
+
 .card {
-    background-color: #f7f9fc;
+    background-color: rgba(120, 120, 120, 0.12);
+    color: inherit;
     padding: 20px;
     border-radius: 12px;
-    border-left: 6px solid #1f4e79;
-    box-shadow: 0px 2px 8px rgba(0,0,0,0.08);
+    border-left: 6px solid #1f77b4;
+    box-shadow: 0px 2px 8px rgba(0,0,0,0.15);
 }
+
+.card h3, .card p {
+    color: inherit;
+}
+
 .safe-box {
-    background-color: #e8f5e9;
+    background-color: rgba(46, 125, 50, 0.18);
+    color: inherit;
     padding: 20px;
     border-radius: 12px;
     border-left: 6px solid #2e7d32;
 }
+
 .fraud-box {
-    background-color: #ffebee;
+    background-color: rgba(198, 40, 40, 0.18);
+    color: inherit;
     padding: 20px;
     border-radius: 12px;
     border-left: 6px solid #c62828;
+}
+
+.safe-box h2, .safe-box p,
+.fraud-box h2, .fraud-box p {
+    color: inherit;
+}
+
+.small-note {
+    font-size: 14px;
+    color: inherit;
+    opacity: 0.85;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -63,9 +85,59 @@ def load_files():
 
 try:
     model, scaler = load_files()
-except:
+except Exception:
     model = None
     scaler = None
+
+# -------------------------------
+# Helper functions
+# -------------------------------
+def make_fraud_gauge(probability):
+    fraud_percent = probability * 100
+
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=fraud_percent,
+        title={"text": "Fraud Probability (%)"},
+        number={"suffix": "%", "valueformat": ".2f"},
+        gauge={
+            "axis": {"range": [0, 100]},
+            "bar": {"color": "#c62828" if probability >= 0.5 else "#2e7d32"},
+            "steps": [
+                {"range": [0, 30], "color": "rgba(46, 125, 50, 0.25)"},
+                {"range": [30, 70], "color": "rgba(255, 193, 7, 0.25)"},
+                {"range": [70, 100], "color": "rgba(198, 40, 40, 0.25)"}
+            ],
+            "threshold": {
+                "line": {"color": "red", "width": 4},
+                "thickness": 0.75,
+                "value": 50
+            }
+        }
+    ))
+
+    fig.update_layout(height=320, margin=dict(l=20, r=20, t=50, b=20))
+    return fig
+
+
+def make_probability_bar(probability):
+    prob_df = pd.DataFrame({
+        "Class": ["Legitimate", "Fraud"],
+        "Probability": [(1 - probability) * 100, probability * 100]
+    })
+
+    fig = px.bar(
+        prob_df,
+        x="Class",
+        y="Probability",
+        text="Probability",
+        title="Prediction Confidence by Class"
+    )
+
+    fig.update_traces(texttemplate="%{text:.2f}%", textposition="outside")
+    fig.update_layout(yaxis_range=[0, 100], yaxis_title="Probability (%)")
+    return fig
+
 
 # -------------------------------
 # Sidebar
@@ -79,7 +151,7 @@ page = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.info("Model: Logistic Regression\n\nBalancing: SMOTE\n\nFrontend: Streamlit")
+st.sidebar.info("Model: Logistic Regression\n\nBalancing: SMOTE\n\nFrontend: Streamlit + Plotly")
 
 # -------------------------------
 # Home Page
@@ -122,21 +194,30 @@ if page == "Home":
 
     st.subheader("Project Workflow")
 
-    st.code("""
-Dataset Collection
-        ↓
-Data Preprocessing
-        ↓
-Train-Test Split
-        ↓
-SMOTE Balancing
-        ↓
-Logistic Regression Model Training
-        ↓
-Model Evaluation
-        ↓
-Streamlit Frontend Integration
-    """)
+    workflow_df = pd.DataFrame({
+        "Step Number": [1, 2, 3, 4, 5, 6, 7],
+        "Step": [
+            "Dataset Collection",
+            "Data Preprocessing",
+            "Train-Test Split",
+            "SMOTE Balancing",
+            "Logistic Regression Training",
+            "Model Evaluation",
+            "Streamlit Frontend Integration"
+        ]
+    })
+
+    fig_workflow = px.line(
+        workflow_df,
+        x="Step Number",
+        y=[1] * len(workflow_df),
+        text="Step",
+        title="FraudGuard AI Workflow"
+    )
+    fig_workflow.update_traces(mode="markers+text", marker=dict(size=18), textposition="top center")
+    fig_workflow.update_yaxes(visible=False)
+    fig_workflow.update_layout(height=330, showlegend=False, xaxis=dict(dtick=1))
+    st.plotly_chart(fig_workflow, use_container_width=True)
 
 # -------------------------------
 # Prediction Page
@@ -157,7 +238,6 @@ elif page == "Predict Transaction":
 
             st.success("Dataset loaded successfully!")
 
-            # Store selected row number in session state
             if "row_number" not in st.session_state:
                 st.session_state.row_number = 0
 
@@ -182,7 +262,6 @@ elif page == "Predict Transaction":
             )
 
             st.session_state.row_number = row_number
-
             selected_row = data.iloc[int(row_number)]
 
             st.write("")
@@ -202,7 +281,24 @@ elif page == "Predict Transaction":
             st.write("")
 
             with st.expander("View Full Transaction Details"):
-                st.dataframe(selected_row.to_frame().T)
+                st.dataframe(selected_row.to_frame().T, use_container_width=True)
+
+            # Interactive amount comparison graph
+            st.subheader("Selected Transaction Amount Comparison")
+            amount_df = pd.DataFrame({
+                "Type": ["Selected Transaction", "Average Sample Amount"],
+                "Amount": [selected_row["Amount"], data["Amount"].mean()]
+            })
+
+            fig_amount = px.bar(
+                amount_df,
+                x="Type",
+                y="Amount",
+                text="Amount",
+                title="Selected Amount vs Average Amount"
+            )
+            fig_amount.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+            st.plotly_chart(fig_amount, use_container_width=True)
 
             if st.button("Predict Selected Transaction"):
                 input_data = selected_row.drop("Class").to_frame().T
@@ -226,6 +322,14 @@ elif page == "Predict Transaction":
 
                 with result_col2:
                     st.metric("Fraud Probability", f"{probability * 100:.2f}%")
+
+                graph_col1, graph_col2 = st.columns(2)
+
+                with graph_col1:
+                    st.plotly_chart(make_fraud_gauge(probability), use_container_width=True)
+
+                with graph_col2:
+                    st.plotly_chart(make_probability_bar(probability), use_container_width=True)
 
                 if prediction == 1:
                     st.markdown(f"""
@@ -252,7 +356,8 @@ elif page == "Predict Transaction":
                     st.error("❌ The model prediction does not match the actual class.")
 
         except FileNotFoundError:
-            st.error("creditcard.csv not found. Please place it in the same folder as app.py.")
+            st.error("sample_transactions.csv not found. Please place it in the same folder as app.py.")
+
 # -------------------------------
 # Model Results Page
 # -------------------------------
@@ -273,61 +378,74 @@ elif page == "Model Results":
     st.write("")
 
     # -------------------------------
-    # Confusion Matrix and Metrics
+    # Interactive Model Performance
     # -------------------------------
     st.subheader("Model Performance")
 
     left_col, right_col = st.columns(2)
 
     with left_col:
-        st.markdown("##### Confusion Matrix")
+        st.markdown("##### Interactive Confusion Matrix")
 
         cm = np.array([[56634, 17],
                        [21, 74]])
 
-        fig, ax = plt.subplots(figsize=(2.8, 2.2))
-
-        display = ConfusionMatrixDisplay(
-            confusion_matrix=cm,
-            display_labels=["Legitimate", "Fraud"]
+        cm_fig = px.imshow(
+            cm,
+            text_auto=True,
+            color_continuous_scale="Blues",
+            x=["Predicted Legitimate", "Predicted Fraud"],
+            y=["Actual Legitimate", "Actual Fraud"],
+            title="Confusion Matrix"
         )
-
-        display.plot(
-            ax=ax,
-            cmap="Blues",
-            colorbar=False
-        )
-
-        ax.set_title("Confusion Matrix", fontsize=8)
-        ax.set_xlabel("Predicted", fontsize=7)
-        ax.set_ylabel("Actual", fontsize=7)
-        ax.tick_params(axis='both', labelsize=6)
-
-        for text in display.text_.ravel():
-            text.set_fontsize(7)
-
-        st.pyplot(fig, use_container_width=False)
+        cm_fig.update_layout(height=420)
+        st.plotly_chart(cm_fig, use_container_width=True)
 
     with right_col:
-        st.markdown("##### Model Performance Metrics")
+        st.markdown("##### Interactive Fraud Class Metrics")
 
-        metrics = ["Precision", "Recall", "F1-score"]
-        values = [0.81, 0.78, 0.79]
+        metrics_df = pd.DataFrame({
+            "Metric": ["Precision", "Recall", "F1-score"],
+            "Score": [0.81, 0.78, 0.79]
+        })
 
-        fig2, ax2 = plt.subplots(figsize=(2.8, 2.2))
-
-        ax2.bar(metrics, values)
-        ax2.set_ylim(0, 1)
-        ax2.set_ylabel("Score", fontsize=7)
-        ax2.set_title("Fraud Class Performance", fontsize=8)
-        ax2.tick_params(axis='both', labelsize=6)
-
-        for index, value in enumerate(values):
-            ax2.text(index, value + 0.02, str(value), ha='center', fontsize=7)
-
-        st.pyplot(fig2, use_container_width=False)
+        metrics_fig = px.bar(
+            metrics_df,
+            x="Metric",
+            y="Score",
+            text="Score",
+            title="Fraud Class Performance"
+        )
+        metrics_fig.update_traces(texttemplate="%{text:.2f}", textposition="outside")
+        metrics_fig.update_layout(yaxis_range=[0, 1], height=420, yaxis_title="Score")
+        st.plotly_chart(metrics_fig, use_container_width=True)
 
     st.write("")
+
+    # -------------------------------
+    # Confusion Matrix Breakdown
+    # -------------------------------
+    st.subheader("Confusion Matrix Breakdown")
+
+    breakdown_df = pd.DataFrame({
+        "Outcome": ["True Legitimate", "False Alarm", "Missed Fraud", "Correct Fraud"],
+        "Count": [56634, 17, 21, 74]
+    })
+
+    breakdown_fig = px.pie(
+        breakdown_df,
+        names="Outcome",
+        values="Count",
+        title="Prediction Outcome Breakdown",
+        hole=0.35
+    )
+    st.plotly_chart(breakdown_fig, use_container_width=True)
+
+    st.info("""
+    The model correctly detected 74 fraud cases and missed 21 fraud cases in the test set.
+    Since fraud detection is highly imbalanced, precision, recall, F1-score, and confusion matrix
+    are more useful than accuracy alone.
+    """)
 
     # -------------------------------
     # Before and After SMOTE Graphs
@@ -339,55 +457,41 @@ elif page == "Model Results":
     SMOTE was applied on the training data to increase fraud samples from a very small amount to a more useful ratio.
     """)
 
-    col_before, col_after = st.columns(2)
+    smote_df = pd.DataFrame({
+        "Stage": ["Before SMOTE", "Before SMOTE", "After SMOTE", "After SMOTE"],
+        "Class": ["Legitimate", "Fraud", "Legitimate", "Fraud"],
+        "Count": [283253, 473, 226602, 4532]
+    })
 
-    with col_before:
-        st.markdown("##### Before SMOTE")
+    smote_df["Percentage"] = smote_df.groupby("Stage")["Count"].transform(lambda x: x / x.sum() * 100)
 
-        labels = ["Legitimate", "Fraud"]
-        before_counts = [283253, 473]
-        before_percentages = [
-            before_counts[0] / sum(before_counts) * 100,
-            before_counts[1] / sum(before_counts) * 100
-        ]
+    smote_fig = px.bar(
+        smote_df,
+        x="Stage",
+        y="Percentage",
+        color="Class",
+        barmode="group",
+        text="Percentage",
+        title="Class Distribution Before and After SMOTE"
+    )
+    smote_fig.update_traces(texttemplate="%{text:.2f}%", textposition="outside")
+    smote_fig.update_layout(yaxis_title="Percentage (%)", yaxis_range=[0, 105])
+    st.plotly_chart(smote_fig, use_container_width=True)
 
-        fig3, ax3 = plt.subplots(figsize=(2.6, 2.1))
-
-        ax3.bar(labels, before_percentages)
-        ax3.set_title("Original Dataset Distribution", fontsize=8)
-        ax3.set_xlabel("Transaction Type", fontsize=7)
-        ax3.set_ylabel("Percentage (%)", fontsize=7)
-        ax3.set_ylim(0, 105)
-        ax3.tick_params(axis='both', labelsize=6)
-
-        for index, value in enumerate(before_percentages):
-            ax3.text(index, value + 1, f"{value:.2f}%", ha='center', fontsize=6)
-
-        st.pyplot(fig3, use_container_width=False)
-
-    with col_after:
-        st.markdown("##### After SMOTE")
-
-        labels = ["Legitimate", "Fraud"]
-        after_counts = [226602, 4532]
-        after_percentages = [
-            after_counts[0] / sum(after_counts) * 100,
-            after_counts[1] / sum(after_counts) * 100
-        ]
-
-        fig4, ax4 = plt.subplots(figsize=(2.6, 2.1))
-
-        ax4.bar(labels, after_percentages)
-        ax4.set_title("Training Data After SMOTE", fontsize=8)
-        ax4.set_xlabel("Transaction Type", fontsize=7)
-        ax4.set_ylabel("Percentage (%)", fontsize=7)
-        ax4.set_ylim(0, 105)
-        ax4.tick_params(axis='both', labelsize=6)
-
-        for index, value in enumerate(after_percentages):
-            ax4.text(index, value + 1, f"{value:.2f}%", ha='center', fontsize=6)
-
-        st.pyplot(fig4, use_container_width=False)
+    # -------------------------------
+    # Counts before and after SMOTE
+    # -------------------------------
+    counts_fig = px.bar(
+        smote_df,
+        x="Stage",
+        y="Count",
+        color="Class",
+        barmode="group",
+        text="Count",
+        title="Transaction Counts Before and After SMOTE"
+    )
+    counts_fig.update_traces(textposition="outside")
+    st.plotly_chart(counts_fig, use_container_width=True)
 
     st.markdown("""
     **Before SMOTE:** Fraud transactions were almost invisible because they were only around **0.17%** of the dataset.  
@@ -398,6 +502,7 @@ elif page == "Model Results":
     Accuracy alone can be misleading in fraud detection because the dataset is highly imbalanced.
     Therefore, precision, recall, F1-score, and confusion matrix are also used for evaluation.
     """)
+
 # -------------------------------
 # About Project Page
 # -------------------------------
@@ -431,6 +536,15 @@ elif page == "About Project":
     SMOTE was used to handle class imbalance. It creates synthetic fraud samples so the model can
     learn fraud patterns better.
 
+    ### Interactive Frontend Features
+
+    - Random legitimate and fraud transaction selection
+    - Fraud probability gauge
+    - Prediction confidence chart
+    - Interactive confusion matrix
+    - SMOTE comparison graphs
+    - Dark-mode friendly project overview cards
+
     ### Learning Outcomes
 
     - Data preprocessing
@@ -440,4 +554,5 @@ elif page == "About Project":
     - Logistic Regression training
     - Model evaluation
     - Streamlit frontend integration
+    - Interactive Plotly visualizations
     """)
